@@ -116,3 +116,163 @@ ny_noaa |>
   )
 ```
 The distribution of snowfall values between 0 and 100 mm is fairly similar across years, with no clear long-term shift in the overall pattern. Most snowfall observations are concentrated at lower to moderate values, with several repeated peaks corresponding to commonly observed snowfall amounts.
+
+## Problem 2
+
+
+```{r}
+nhanes_covar =
+  read_csv(
+    "data/nhanes_covar.csv",
+    skip = 4
+  ) |>
+  janitor::clean_names()
+```
+
+```{r}
+nhanes_accel =
+  read_csv("data/nhanes_accel.csv") |>
+  janitor::clean_names()
+```
+```{r}
+nhanes_covar =
+  nhanes_covar |>
+  mutate(
+    sex = factor(
+      sex,
+      levels = c(1, 2),
+      labels = c("male", "female")
+    ),
+    education = factor(
+      education,
+      levels = c(1, 2, 3),
+      labels = c(
+        "Less than high school",
+        "High school equivalent",
+        "More than high school"
+      )
+    )
+  ) |>
+  filter(
+    age >= 21,
+    !is.na(sex),
+    !is.na(age),
+    !is.na(bmi),
+    !is.na(education)
+  )
+
+nhanes_df =
+  nhanes_covar |>
+  inner_join(
+    nhanes_accel,
+    by = "seqn"
+  )
+```
+
+
+```{r}
+nhanes_df |>
+  count(education, sex) |>
+  pivot_wider(
+    names_from = sex,
+    values_from = n
+  ) |>
+  knitr::kable(
+    caption = "Number of Men and Women in Each Education Category"
+  )
+```
+```{r}
+ggplot(
+  nhanes_df,
+  aes(x = age, fill = sex)
+) +
+  geom_density(alpha = 0.4) +
+  facet_wrap(~education) +
+  labs(
+    x = "Age",
+    y = "Density",
+    fill = "Sex",
+    title = "Age Distribution by Sex and Education Level"
+  )
+```
+
+The number of men and women is fairly similar in the less than high school and more than high school education groups, while the high school equivalent group contains more men than women. The age distributions also differ across education levels. Participants with more than a high school education tend to be younger, particularly among women, while participants in the high school equivalent group tend to be older.
+
+```{r}
+nhanes_df =
+  nhanes_df |>
+  mutate(
+    total_activity = rowSums(
+      across(min1:min1440),
+      na.rm = TRUE
+    )
+  )
+```
+
+
+
+```{r}
+ggplot(
+  nhanes_df,
+  aes(
+    x = age,
+    y = total_activity,
+    color = sex
+  )
+) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(se = FALSE) +
+  facet_wrap(~education) +
+  labs(
+    x = "Age",
+    y = "Total Daily Activity",
+    color = "Sex",
+    title = "Total Daily Activity by Age, Sex, and Education Level"
+  )
+```
+Total daily activity generally decreases with age, although the pattern differs somewhat across education groups. In the less than high school group, activity declines noticeably at older ages for both men and women. In the high school equivalent group, activity is relatively high among younger adults and then decreases with age. In the more than high school group, activity levels are fairly stable through middle age and decline at older ages. Differences between men and women vary across age and education groups rather than following one consistent pattern.
+
+
+```{r}
+activity_long =
+  nhanes_df |>
+  select(seqn, sex, education, min1:min1440) |>
+  pivot_longer(
+    min1:min1440,
+    names_to = "minute",
+    values_to = "activity"
+  ) |>
+  mutate(
+    minute = as.numeric(str_remove(minute, "min"))
+  )
+```
+
+```{r}
+activity_long |>
+  group_by(education, sex, minute) |>
+  summarize(
+    mean_activity = mean(activity, na.rm = TRUE),
+    .groups = "drop"
+  ) |>
+  ggplot(
+    aes(
+      x = minute,
+      y = mean_activity,
+      color = sex
+    )
+  ) +
+  geom_line() +
+  geom_smooth(se = FALSE) +
+  facet_wrap(~education) +
+  scale_x_continuous(
+    breaks = c(0, 360, 720, 1080, 1440),
+    labels = c("12 AM", "6 AM", "12 PM", "6 PM", "12 AM")
+  ) +
+  labs(
+    x = "Time of Day",
+    y = "Average Activity",
+    color = "Sex",
+    title = "24-Hour Activity Patterns by Sex and Education Level"
+  )
+```
+Across all three education groups, activity is lowest overnight, rises sharply in the morning, remains relatively high during the daytime, and declines again in the evening. Women generally show slightly higher average activity than men during much of the daytime, although the size of the difference varies across education groups and time of day.
