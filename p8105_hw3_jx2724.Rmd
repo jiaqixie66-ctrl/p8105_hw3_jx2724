@@ -11,3 +11,108 @@ library(p8105.datasets)
 ```
 
 ## Problem 1
+
+```{r}
+data("ny_noaa")
+```
+
+```{r}
+ny_noaa |>
+  summarize(
+    across(
+      everything(),
+      ~ mean(is.na(.))
+    )
+  )
+```
+
+The `ny_noaa` dataset contains 2,595,176 observations and 7 variables. Key variables include weather station ID, date, precipitation, snowfall, snow depth, maximum temperature, and minimum temperature. Missing data are an important issue in this dataset, especially for maximum and minimum temperature, which are missing for approximately 44% of observations. Snow depth is missing for about 23% of observations, snowfall for about 15%, and precipitation for about 6%.
+
+
+```{r}
+ny_noaa =
+  ny_noaa |>
+  mutate(
+    year = as.integer(format(date, "%Y")),
+    month = as.integer(format(date, "%m")),
+    day = as.integer(format(date, "%d")),
+    tmax = as.numeric(tmax) / 10,
+    tmin = as.numeric(tmin) / 10,
+    prcp = prcp / 10
+  )
+```
+
+```{r}
+ny_noaa |>
+  count(snow, sort = TRUE)
+```
+
+The most commonly observed snowfall value is 0 mm, which occurs far more often than any other value because most days do not have snowfall. Other frequently observed values include 25 mm, 13 mm, 51 mm, and 76 mm.
+
+
+
+```{r}
+jan_july_temp =
+  ny_noaa |>
+  filter(month %in% c(1, 7)) |>
+  group_by(id, year, month) |>
+  summarize(
+    mean_tmax = mean(tmax, na.rm = TRUE),
+    .groups = "drop"
+  ) |>
+  mutate(
+    month = recode(
+      month,
+      `1` = "January",
+      `7` = "July"
+    )
+  )
+```
+
+
+```{r}
+ggplot(
+  jan_july_temp,
+  aes(x = year, y = mean_tmax, group = id)
+) +
+  geom_line(alpha = 0.2) +
+  facet_wrap(~month) +
+  labs(
+    x = "Year",
+    y = "Average Maximum Temperature (°C)",
+    title = "Average Maximum Temperature by Station in January and July"
+  )
+```
+
+Average maximum temperatures are substantially lower in January than in July. January temperatures show more variability across stations and years, while July temperatures are generally concentrated around the upper 20s °C. There is no clear monotonic trend over time in either month, although several unusually low observations are visible and may represent outliers or unusual station-year conditions.
+
+
+
+```{r}
+ggplot(
+  ny_noaa,
+  aes(x = tmin, y = tmax)
+) +
+  geom_bin_2d() +
+  labs(
+    x = "Minimum Temperature (°C)",
+    y = "Maximum Temperature (°C)",
+    title = "Maximum vs Minimum Temperature"
+  )
+```
+
+There is a strong positive relationship between minimum and maximum temperature. Most observations are concentrated along a diagonal band, indicating that warmer days tend to have both higher minimum and maximum temperatures. A small number of observations appear far from the main concentration and may represent extreme weather events or unusual measurements.
+
+
+```{r}
+ny_noaa |>
+  filter(snow > 0, snow < 100) |>
+  ggplot(aes(x = year, y = snow, group = year)) +
+  geom_violin() +
+  labs(
+    x = "Year",
+    y = "Snowfall (mm)",
+    title = "Distribution of Snowfall Values Between 0 and 100 mm by Year"
+  )
+```
+The distribution of snowfall values between 0 and 100 mm is fairly similar across years, with no clear long-term shift in the overall pattern. Most snowfall observations are concentrated at lower to moderate values, with several repeated peaks corresponding to commonly observed snowfall amounts.
