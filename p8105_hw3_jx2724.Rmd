@@ -276,3 +276,179 @@ activity_long |>
   )
 ```
 Across all three education groups, activity is lowest overnight, rises sharply in the morning, remains relatively high during the daytime, and declines again in the evening. Women generally show slightly higher average activity than men during much of the daytime, although the size of the difference varies across education groups and time of day.
+
+
+
+## Problem 3
+
+```{r}
+citi_jan_2020 =
+  read_csv(
+    unz(
+      "data/citibike/Jan 2020 Citi.csv.zip",
+      "Jan 2020 Citi.csv"
+    )
+  ) |>
+  janitor::clean_names()
+```
+
+```{r}
+citi_jan_2020 =
+  read_csv(
+    unz(
+      "data/citibike/Jan 2020 Citi.csv.zip",
+      "Jan 2020 Citi.csv"
+    )
+  ) |>
+  janitor::clean_names() |>
+  mutate(
+    year = 2020,
+    month = "January"
+  )
+
+citi_july_2020 =
+  read_csv(
+    unz(
+      "data/citibike/July 2020 Citi.csv.zip",
+      "July 2020 Citi.csv"
+    )
+  ) |>
+  janitor::clean_names() |>
+  mutate(
+    year = 2020,
+    month = "July"
+  )
+
+citi_jan_2024 =
+  read_csv(
+    unz(
+      "data/citibike/Jan 2024 Citi.csv.zip",
+      "Jan 2024 Citi.csv"
+    )
+  ) |>
+  janitor::clean_names() |>
+  mutate(
+    year = 2024,
+    month = "January"
+  )
+
+citi_july_2024 =
+  read_csv(
+    unz(
+      "data/citibike/July 2024 Citi.csv.zip",
+      "July 2024 Citi.csv"
+    )
+  ) |>
+  janitor::clean_names() |>
+  mutate(
+    year = 2024,
+    month = "July"
+  )
+
+citi_df =
+  bind_rows(
+    citi_jan_2020,
+    citi_july_2020,
+    citi_jan_2024,
+    citi_july_2024
+  )
+```
+The combined Citi Bike dataset contains `r nrow(citi_df)` rides and `r ncol(citi_df)` variables. Key variables include ride ID, bike type, day of the week, ride duration, starting and ending station names, rider membership type, year, and month. The dataset includes rides from January and July of 2020 and 2024.
+
+
+```{r}
+citi_df |>
+  count(year, month, member_casual) |>
+  pivot_wider(
+    names_from = member_casual,
+    values_from = n
+  ) |>
+  knitr::kable(
+    caption = "Number of Citi Bike Rides by Year, Month, and Rider Type"
+  )
+```
+
+```{r}
+citi_df |>
+  filter(year == 2024, month == "July") |>
+  count(start_station_name, sort = TRUE) |>
+  slice_head(n = 5) |>
+  knitr::kable(
+    caption = "Five Most Popular Starting Stations in July 2024"
+  )
+```
+```{r}
+ride_duration_summary =
+  citi_df |>
+  mutate(
+    weekdays = factor(
+      weekdays,
+      levels = c(
+        "Monday", "Tuesday", "Wednesday",
+        "Thursday", "Friday", "Saturday", "Sunday"
+      )
+    )
+  ) |>
+  group_by(year, month, weekdays) |>
+  summarize(
+    median_duration = median(duration, na.rm = TRUE),
+    .groups = "drop"
+  )
+```
+
+```{r}
+ggplot(
+  ride_duration_summary,
+  aes(
+    x = weekdays,
+    y = median_duration,
+    color = month,
+    group = month
+  )
+) +
+  geom_point() +
+  geom_line() +
+  facet_wrap(~year) +
+  labs(
+    x = "Day of Week",
+    y = "Median Ride Duration (minutes)",
+    color = "Month",
+    title = "Median Ride Duration by Day of Week, Month, and Year"
+  ) +
+  theme(
+    axis.text.x = element_text(
+      angle = 45,
+      hjust = 1
+    )
+  )
+```
+
+Median ride duration is consistently higher in July than in January. Ride durations are also generally longer in 2020 than in 2024. Weekend rides, particularly on Saturday and Sunday, tend to have longer median durations than weekday rides, with this pattern especially noticeable in July 2020.
+
+
+```{r}
+citi_2024 =
+  citi_df |>
+  filter(year == 2024)
+```
+
+
+```{r}
+ggplot(
+  citi_2024,
+  aes(
+    x = rideable_type,
+    y = duration,
+    fill = member_casual
+  )
+) +
+  geom_boxplot(outlier.alpha = 0.2) +
+  facet_wrap(~month) +
+  labs(
+    x = "Bike Type",
+    y = "Ride Duration (minutes)",
+    fill = "Rider Type",
+    title = "Ride Duration in 2024 by Month, Rider Type, and Bike Type"
+  )
+```
+In 2024, casual riders generally have longer ride durations than members for both classic and electric bikes. Ride durations also tend to be higher in July than in January. Differences between classic and electric bikes are smaller than the differences between casual riders and members.
